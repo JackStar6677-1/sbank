@@ -22,6 +22,12 @@ public class PlayerLoanChatListener implements Listener {
 
         if (LoanGuiListener.getLoanAmount().containsKey(player.getName())){
             e.setCancelled(true);
+            if (SBank.getDebts().containsKey(player.getName())) {
+                LoanGuiListener.getLoanAmount().remove(player.getName());
+                LoanGuiListener.getLoanAgree().remove(player.getName());
+                TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.active-debt"));
+                return;
+            }
             String loanAmount = e.getMessage();
             if (!loanAmount.equalsIgnoreCase("cancel")){
                 if (MiscUtils.isInteger(loanAmount, 10)){

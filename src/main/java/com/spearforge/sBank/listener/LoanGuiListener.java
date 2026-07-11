@@ -47,6 +47,12 @@ public class LoanGuiListener implements Listener {
             return;
         }
 
+        if (SBank.getDebts().containsKey(player.getName())) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.active-debt"));
+            player.closeInventory();
+            return;
+        }
+
         String availableLoanName = ChatColor.translateAlternateColorCodes('&', SBank.getGuiConfig().getString("gui.loan.available-loan.name"));
 
         if (e.getCurrentItem() != null && e.getCurrentItem().getItemMeta() != null && e.getCurrentItem().getItemMeta().getDisplayName() != null) {
@@ -92,6 +98,11 @@ public class LoanGuiListener implements Listener {
 
     private void agreeLoan(Player player) {
         Debt debt = loanAgree.get(player.getName());
+        if (debt == null || SBank.getDebts().containsKey(player.getName())) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.active-debt"));
+            disagreeLoan(player);
+            return;
+        }
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         LocalDateTime dateTime = LocalDateTime.now();
         String dateFormatted = dateTime.format(formatter);
@@ -107,7 +118,10 @@ public class LoanGuiListener implements Listener {
         try {
             SBank.getDb().setDebtToDatabase(debt);
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            SBank.getDebts().remove(player.getName());
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.loan-failed"));
+            SBank.getPlugin().getLogger().severe("[ERROR] No se pudo persistir el préstamo de " + player.getName());
+            return;
         }
 
         double loan = loanAmount.get(player.getName());

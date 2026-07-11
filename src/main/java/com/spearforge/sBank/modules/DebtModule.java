@@ -66,6 +66,8 @@ public class DebtModule {
 
 
     public static void payDebt(Player player, Double amount) {
+        if (!isValidPayment(player, amount)) return;
+        amount = Math.min(amount, SBank.getDebts().get(player.getName()).getRemaining());
         SBank.getDebts().get(player.getName()).setRemaining(SBank.getDebts().get(player.getName()).getRemaining() - amount);
         // handle bank balance
         SBank.getBanks().get(player.getName()).setBalance(SBank.getBanks().get(player.getName()).getBalance() - amount);
@@ -81,10 +83,13 @@ public class DebtModule {
         }else{
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.debt-payment-success").replaceAll("%money%", MiscUtils.formatBalance(amount)));
             DebtModule.updateLastPaymentDate(player.getName());
+            persistDebt(player.getName());
         }
     }
 
     public static void payDebtFromBalance(Player player, Double amount){
+        if (!isValidPayment(player, amount)) return;
+        amount = Math.min(amount, SBank.getDebts().get(player.getName()).getRemaining());
         SBank.getDebts().get(player.getName()).setRemaining(SBank.getDebts().get(player.getName()).getRemaining() - amount);
         SBank.getEcon().withdrawPlayer(player, amount);
         // remove from map
@@ -101,8 +106,22 @@ public class DebtModule {
         }else{
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.debt-payment-success").replaceAll("%money%", MiscUtils.formatBalance(amount)));
             DebtModule.updateLastPaymentDate(player.getName());
+            persistDebt(player.getName());
         }
 
+    }
+
+    private static boolean isValidPayment(Player player, Double amount) {
+        return player != null && amount != null && Double.isFinite(amount) && amount > 0
+                && SBank.getDebts().containsKey(player.getName());
+    }
+
+    private static void persistDebt(String username) {
+        try {
+            SBank.getDb().updateDebtInDatabase(SBank.getDebts().get(username));
+        } catch (SQLException exception) {
+            SBank.getPlugin().getLogger().warning("[ERROR] No se pudo persistir el pago de deuda de " + username);
+        }
     }
 
 }

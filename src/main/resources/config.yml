@@ -66,6 +66,7 @@ messages:
   loan-paid: "&6You have successfully paid &c%amount%$ &6towards your loan debt."
   loan-cancelled: "&6The loan process has been canceled."
   loan-disabled: "&cThe loan feature is currently disabled."
+  active-debt: "&cYa tienes un préstamo activo. Debes saldarlo antes de solicitar otro."
   loan-amount-error: "&cYou cannot loan more than &c%maxloan%$ or less than &c%minloan%$."
   debt-deducted: "&6An amount of &c%money%$&6 has been deducted from your bank account to pay off your debt."
   debt-cant-paid: "&cYour debt pay time has come and you don't have enough money to pay it. Your remaining debt has been increased by &c%money%$."
@@ -107,9 +108,9 @@ gui:
 # Loan Permission: sbank.loan
 loan:
   enabled: true # If you turn this false or true you need to restart the server to apply changes
-  max-loan: 1000000.0
+  max-loan: 250000.0
   min-loan: 1000.0
-  loan-interest: 10 # In percentage
+  loan-interest: 1 # Por día; durante 7 días equivale a 7% total.
   loan-term: 7
   debt-time: 12 # In hours debt will be deducted every 12 hours
 
@@ -118,8 +119,8 @@ loan:
 # Custom Interest Permission: sbank.interest.<percent>
 interest:
   enabled: true # If you turn this false or true you need to restart the server to apply changes. Also change gui.yml to remove interest information for good user experience.
-  default-interest-rate: 10 # In percentage. If the player is online and the interest setting is enabled, they will receive this default percentage of their money at every interest-time, unless they have a sbank.interest.<percent> permission set.
-  interest-time: 12 # In hours interest will be calculated every 12 hours
+  default-interest-rate: 0.25 # Interés de depósitos por ciclo.
+  interest-time: 24 # In hours interest will be calculated every 24 hours
   last-interest-date: "2024-10-07 20:49:00" # Last interest info, DO NOT TOUCH, this will be change automatically
   interest-message: "&6You got %interest% interest to your bank account."
 
