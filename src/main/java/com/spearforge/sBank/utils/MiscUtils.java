@@ -77,7 +77,7 @@ public class MiscUtils {
         }
 
         SkullMeta headMeta = (SkullMeta) head.getItemMeta();
-        GameProfile profile = new GameProfile(UUID.randomUUID(), null);
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "player");
         profile.getProperties().put("textures", new Property("textures", base64));
 
         try {
