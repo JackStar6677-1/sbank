@@ -4,9 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
+import com.spearforge.sBank.utils.MoneyMath;
 
 @Data
 @AllArgsConstructor
@@ -27,10 +25,11 @@ public class Bank {
     }
     
     public double getBalance() {
-        DecimalFormatSymbols dfs = new DecimalFormatSymbols(Locale.GERMANY);
-        dfs.setDecimalSeparator('.');
-        DecimalFormat df = new DecimalFormat("#.00", dfs);
-        return Double.parseDouble(df.format(balance));
+        return balance;
+    }
+
+    public void setBalance(double balance) {
+        this.balance = MoneyMath.normalize(balance);
     }
 
 }
