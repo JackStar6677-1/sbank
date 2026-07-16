@@ -1,53 +1,83 @@
-# sBank - A Fun and Handy Banking Plugin for your Minecraft Servers
+<p align="center">
+  <img src="assets/sbank-logo.svg" width="640" alt="sBank" />
+</p>
 
-**sBank** is a fun and handy banking plugin for Minecraft servers that lets players manage their money, take out loans, and earn interest on their savings! With seamless integration with **Vault** for economy management, sBank brings a whole new level of financial adventure to your gameplay. Dive in and enjoy all the features that make managing your finances a breeze!
+# sBank
 
----
+Banking plugin for Minecraft servers using Vault. This fork is maintained for DrakesCraft, with emphasis on predictable money movements, transparent records, and operational safety.
 
-## **Features**
+## What It Does
 
-- **Bank Accounts:** Players can easily create and manage their own bank accounts, putting their finances at their fingertips.
-- **Deposits and Withdrawals:** Effortlessly deposit and withdraw money from your bank account whenever you need to!
-- **Loans:** Need some extra cash? Players can take out loans and repay them over time with interest.
-- **Interest:** Watch your savings grow! Players earn interest on their bank balances at customizable intervals.
-- **Death Penalty:** Beware! Players may lose a percentage of their money upon death, with the option to configure this via permissions.
-- **GUI Integration:** Enjoy a user-friendly graphical interface for hassle-free management of bank accounts and loans.
-- **Configurable Settings:** All features, including loans, interest rates, and the death penalty, can be easily enabled or disabled through the configuration settings. Plus, everything within the plugin is fully customizable via the config file.
-- **Database Support:** Enjoy flexibility with support for both **MySQL** and **SQLite**, allowing players to choose their preferred database system for safely storing financial data.
-- **Admin GUI:** A dedicated interface for administrators! Use the /sbank <player-name> command to easily view players' bank and debt information.
-- **Citizens Support:** Seamless integration with the Citizens plugin! Add Banker NPCs with customizable settings, including VIP-specific permissions for enhanced functionality.
-- **Permission-Based Interest System:** Fine-tune interest rates with permission nodes! For example, granting sbank.interest.100 will boost the interest rate to 100%.
-- **Custom Head Support:** Enhance all menus with personalized custom head designs for a more immersive experience.
-- **Physical Money:** Withdraw your bank balance as tangible items! Trade, store, or deposit back with a simple right-click. Fully customizable and easy to use!
+- Personal bank accounts backed by SQLite or MySQL.
+- Deposits, withdrawals, and optional physical money items.
+- Loans, scheduled debt payments, and configurable interest.
+- Vault economy integration and Citizens banker support.
+- Daily JSONL audit files for deposits, withdrawals, physical money, loans, debt payments, interest, and death penalties.
 
----
+## Audit Trail
 
-## **Commands**
+Every bank movement is written to:
 
-- `/sbank` - Main command of sBank GUI which you can manage all things.
-- `/sbank debt` - Check your current debt status.
-- `/sbank reload` - Reload the plugin configuration.
-- `/sbank <player-name>` - Check player's debt and bank account.
+```text
+plugins/sBank/audit/transactions-YYYY-MM-DD.jsonl
+```
 
----
+Each line includes the timestamp, player UUID, movement type, amount, wallet balances before and after, bank balances before and after, and a short source note. The audit is file-based, so normal operation does not flood the Minecraft console.
 
-## **Permissions**
+Configure it in `config.yml`:
 
-- `sbank.use` - Allows the player to use the sBank GUI.
-- `sbank.loan` - Allows the player to take out loans.
-- `sbank.interest` - Allows the player to earn interest on their bank balance.
-- `sbank.interest.<percentage>` - Allow players or roles to have custom interest rates.
-- `sbank.dontlosemoney` - Prevents the player from losing money upon death.
-- `sbank.admin` - Allows the player to use the reload command.
-- `sbank.bypass.banker` - Allows players to use the `/bank` command when a banker npc is enabled.
----
+```yaml
+audit:
+  enabled: true
+  directory: "audit"
+```
 
-## **Dependencies**
+## Commands
 
-- **Vault** (Required)
-- **Citizens** (Optional)
----
+| Command | Description |
+| --- | --- |
+| `/bank` | Opens the personal bank menu. |
+| `/bank debt` | Shows the current debt. |
+| `/bank <player>` | Opens the administrator view for a player. |
+| `/bank reload` | Reloads configuration for administrators. |
 
-## **Support**
+## Permissions
 
-If you need any help, feel free to join and ask on [**Discord**](https://discord.gg/FSTJhYPg9c).
+| Permission | Description |
+| --- | --- |
+| `sbank.use` | Open the bank menu. |
+| `sbank.loan` | Request loans. |
+| `sbank.interest` | Receive configured bank interest. |
+| `sbank.interest.<percentage>` | Override the configured interest rate. |
+| `sbank.dontlosemoney` | Skip environmental death penalties. |
+| `sbank.admin` | Access administration and reload commands. |
+| `sbank.bypass.banker` | Use the bank while banker NPC mode is enabled. |
+
+## Runtime Notes
+
+- Vault is required. Citizens is optional.
+- Numeric transactions must be finite and greater than zero.
+- Vault responses are checked before the corresponding bank balance is changed.
+- Chat-driven actions are returned to the Bukkit main thread before interacting with Vault, inventories, or persistent plugin state.
+- Interest creates money according to the configured rate. Treat its rate and interval as economy policy, not a harmless cosmetic setting.
+
+## Build
+
+Use Java 8 or later with Maven:
+
+```powershell
+wsl -e bash -lc 'cd /mnt/c/Users/jack/Documents/GitHub/Repositorios\ personales/sBank && mvn clean package'
+```
+
+The resulting plugin is generated in `target/`.
+
+## Deployment
+
+1. Back up the current `sBank.jar` and `plugins/sBank/sbank.db`.
+2. Replace only the JAR while the server is stopped.
+3. Start the server and make one controlled deposit and withdrawal.
+4. Check the new audit file before allowing regular traffic.
+
+## License and Upstream
+
+This repository is a fork of [xenrivehub/sbank](https://github.com/xenrivehub/sbank). Keep upstream license notices intact when redistributing changes.

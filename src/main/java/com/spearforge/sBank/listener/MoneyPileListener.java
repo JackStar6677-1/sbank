@@ -7,6 +7,7 @@ import com.spearforge.sBank.utils.MiscUtils;
 import com.spearforge.sBank.utils.TextUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -19,6 +20,10 @@ public class MoneyPileListener implements Listener {
 
     @EventHandler
     public void onMoneyPileClick(PlayerInteractEvent e){
+        if (e.getHand() == null || !e.getHand().name().equals("HAND")
+                || (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK)) {
+            return;
+        }
         Player player = e.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
@@ -37,14 +42,19 @@ public class MoneyPileListener implements Listener {
         }
 
         double amount = MiscUtils.extractMoney(meta.getLore());
-        if (amount == -100.0){
+        if (amount <= 0 || item.getAmount() != 1){
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-money-pile"));
             return;
         }
 
-        player.getInventory().remove(item);
+        e.setCancelled(true);
         Bank pBank = SBank.getBanks().get(player.getName());
-        pBank.setBalance(pBank.getBalance() + amount);
+        double bankBefore = pBank.getBalance();
+        double wallet = SBank.getEcon().getBalance(player);
+        player.getInventory().setItemInMainHand(null);
+        pBank.setBalance(bankBefore + amount);
+        SBank.getAuditLogger().record("PHYSICAL_REDEEM", player.getName(), player.getUniqueId().toString(), amount,
+                wallet, wallet, bankBefore, pBank.getBalance(), "right-click-item");
         TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.money-pile-redeemed").replaceAll("%money_pile%", MiscUtils.formatBalance(amount)));
 
 

@@ -4,6 +4,7 @@ import com.spearforge.sBank.SBank;
 import com.spearforge.sBank.listener.DebtGuiListener;
 import com.spearforge.sBank.utils.MiscUtils;
 import com.spearforge.sBank.utils.TextUtils;
+import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.entity.Player;
 
 import java.sql.SQLException;
@@ -66,9 +67,14 @@ public class DebtModule {
 
 
     public static void payDebt(Player player, Double amount) {
-        SBank.getDebts().get(player.getName()).setRemaining(SBank.getDebts().get(player.getName()).getRemaining() - amount);
-        // handle bank balance
-        SBank.getBanks().get(player.getName()).setBalance(SBank.getBanks().get(player.getName()).getBalance() - amount);
+        double bankBefore = SBank.getBanks().get(player.getName()).getBalance();
+        double debtBefore = SBank.getDebts().get(player.getName()).getRemaining();
+        double payment = Math.min(amount, debtBefore);
+        SBank.getDebts().get(player.getName()).setRemaining(debtBefore - payment);
+        SBank.getBanks().get(player.getName()).setBalance(bankBefore - payment);
+        double wallet = SBank.getEcon().getBalance(player);
+        SBank.getAuditLogger().record("DEBT_AUTO_PAYMENT", player.getName(), player.getUniqueId().toString(), payment,
+                wallet, wallet, bankBefore, SBank.getBanks().get(player.getName()).getBalance(), "remaining-debt=" + (debtBefore - payment));
 
         if (SBank.getDebts().get(player.getName()).getRemaining() <= 0){
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.debt-paid").replaceAll("%money%", MiscUtils.formatBalance(SBank.getDebts().get(player.getName()).getTotal())));
@@ -85,10 +91,20 @@ public class DebtModule {
     }
 
     public static void payDebtFromBalance(Player player, Double amount){
-        SBank.getDebts().get(player.getName()).setRemaining(SBank.getDebts().get(player.getName()).getRemaining() - amount);
-        SBank.getEcon().withdrawPlayer(player, amount);
-        // remove from map
+        double debtBefore = SBank.getDebts().get(player.getName()).getRemaining();
+        double payment = Math.min(amount, debtBefore);
+        double walletBefore = SBank.getEcon().getBalance(player);
+        EconomyResponse response = SBank.getEcon().withdrawPlayer(player, payment);
+        if (!response.transactionSuccess()) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString(
+                    "messages.transaction-failed", "&cThe transaction could not be completed."));
+            return;
+        }
+        SBank.getDebts().get(player.getName()).setRemaining(debtBefore - payment);
         DebtGuiListener.getDebtPayment().remove(player.getName());
+        double bank = SBank.getBanks().get(player.getName()).getBalance();
+        SBank.getAuditLogger().record("DEBT_WALLET_PAYMENT", player.getName(), player.getUniqueId().toString(), payment,
+                walletBefore, SBank.getEcon().getBalance(player), bank, bank, "remaining-debt=" + (debtBefore - payment));
 
         if (SBank.getDebts().get(player.getName()).getRemaining() <= 0){
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.debt-paid").replaceAll("%money%", MiscUtils.formatBalance(SBank.getDebts().get(player.getName()).getTotal())));

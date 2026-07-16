@@ -17,6 +17,12 @@ auto-save:
     enabled: true # Enable or disable logging for auto-save operations (true / false)
     message: "All banks and debts saved to the database." # Message to log upon successful save
 
+# One JSON record is written for every bank movement. Files are stored under
+# plugins/sBank/audit and are intended for staff review, not console spam.
+audit:
+  enabled: true
+  directory: "audit"
+
 # Default bank name, when player first join to server they will have a bank account with this name
 default-bank-name: "My Bank"
 # Maximum bank name length
@@ -72,6 +78,7 @@ messages:
   debt-payment-success: "&6You successfully paid &c%money%$&6 towards your debt."
   debt-paid: "&6Your debt of &c%money%$&6 has been fully paid off. You are now debt-free and can take out another loan."
   invalid-amount: "&cThe amount entered is invalid."
+  transaction-failed: "&cThe transaction could not be completed. Try again in a moment."
   less-then-daily: "&cYou cannot pay less than the daily minimum of &c%daily%&6 for your debt."
   loan-agree:
     - "&c------------------- &fDebt Details &c---------------------"

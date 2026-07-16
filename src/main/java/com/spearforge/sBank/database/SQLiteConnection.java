@@ -141,6 +141,9 @@ public class SQLiteConnection extends DatabaseConnection {
                     double interest = MiscUtils.getInterest(player, _interest);
                     double interestAmount = balance * (interest / 100);
                     SBank.getBanks().get(player.getName()).setBalance(balance + interestAmount);
+                    double wallet = SBank.getEcon().getBalance(player);
+                    SBank.getAuditLogger().record("INTEREST", player.getName(), player.getUniqueId().toString(), interestAmount,
+                            wallet, wallet, balance, SBank.getBanks().get(player.getName()).getBalance(), "rate=" + interest);
                     TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("interest.interest-message").replaceAll("%interest%", MiscUtils.formatBalance(interestAmount)));
                 }
             }

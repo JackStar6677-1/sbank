@@ -111,7 +111,11 @@ public class LoanGuiListener implements Listener {
         }
 
         double loan = loanAmount.get(player.getName());
-        SBank.getBanks().get(player.getName()).setBalance(SBank.getBanks().get(player.getName()).getBalance() + loan);
+        double bankBefore = SBank.getBanks().get(player.getName()).getBalance();
+        SBank.getBanks().get(player.getName()).setBalance(bankBefore + loan);
+        double wallet = SBank.getEcon().getBalance(player);
+        SBank.getAuditLogger().record("LOAN_GRANTED", player.getName(), player.getUniqueId().toString(), loan,
+                wallet, wallet, bankBefore, SBank.getBanks().get(player.getName()).getBalance(), "total-debt=" + debt.getTotal());
 
         loanAgree.remove(player.getName());
         loanAmount.remove(player.getName());

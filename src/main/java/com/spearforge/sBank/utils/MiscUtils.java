@@ -63,7 +63,7 @@ public class MiscUtils {
         if (str == null || str.isEmpty()) return false;
         try {
             double value = Double.parseDouble(str);
-            return value >= 0;
+            return Double.isFinite(value) && value > 0;
         } catch (NumberFormatException e) {
             return false;
         }

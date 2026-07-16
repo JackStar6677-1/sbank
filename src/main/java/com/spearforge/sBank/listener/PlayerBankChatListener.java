@@ -5,60 +5,64 @@ import com.spearforge.sBank.model.Bank;
 import com.spearforge.sBank.modules.DebtModule;
 import com.spearforge.sBank.utils.MiscUtils;
 import com.spearforge.sBank.utils.TextUtils;
+import net.milkbowl.vault.economy.EconomyResponse;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.inventory.ItemStack;
 
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PlayerBankChatListener implements Listener {
 
     @EventHandler
-    public void onGivingCustomAmount(AsyncPlayerChatEvent e) {
-        String playerName = e.getPlayer().getName();
+    public void onGivingCustomAmount(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        if (!isPlayerInCustomTransaction(player.getName())) {
+            return;
+        }
 
-        if (isPlayerInCustomTransaction(playerName)) {
-            e.setCancelled(true);
-            String message = e.getMessage();
-            double balance = SBank.getEcon().getBalance(e.getPlayer());
+        event.setCancelled(true);
+        String message = event.getMessage();
+        // Vault, inventories and plugin state must only be used on the server thread.
+        Bukkit.getScheduler().runTask(SBank.getPlugin(), () -> processTransaction(player, message));
+    }
 
-            if (message.equalsIgnoreCase("close")) {
-                cancelTransaction(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.custom-amount-not-set"));
-                return;
-            }
+    private void processTransaction(Player player, String message) {
+        String playerName = player.getName();
+        if (!isPlayerInCustomTransaction(playerName)) {
+            return;
+        }
 
-            if (BankGuiListener.getSetName().containsKey(playerName)) {
-                handleSetBankName(e, message);
-            }
-            else if(BankGuiListener.getCustomPhysicalWithAmount().containsKey(playerName)) {
-                handlePhysicalWithdraw(e, message);
-            }
-            else if (BankGuiListener.getCustomDepAmount().containsKey(playerName)) {
-                handleDeposit(e, balance, message);
-            }
-            else if (BankGuiListener.getCustomWithAmount().containsKey(playerName)) {
-                handleWithdraw(e, message);
-            }
-            else if (DebtGuiListener.getDebtPayment().containsKey(playerName)) {
-                handleDebtPayment(e, balance, message);
-            }
-            else {
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
-            }
+        if (message.equalsIgnoreCase("close")) {
+            cancelTransaction(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.custom-amount-not-set"));
+            return;
+        }
+
+        if (BankGuiListener.getSetName().containsKey(playerName)) {
+            handleSetBankName(player, message);
+        } else if (BankGuiListener.getCustomPhysicalWithAmount().containsKey(playerName)) {
+            handlePhysicalWithdraw(player, message);
+        } else if (BankGuiListener.getCustomDepAmount().containsKey(playerName)) {
+            handleDeposit(player, message);
+        } else if (BankGuiListener.getCustomWithAmount().containsKey(playerName)) {
+            handleWithdraw(player, message);
+        } else if (DebtGuiListener.getDebtPayment().containsKey(playerName)) {
+            handleDebtPayment(player, message);
+        } else {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
         }
     }
 
     private boolean isPlayerInCustomTransaction(String playerName) {
-        return BankGuiListener.getCustomDepAmount().containsKey(playerName) ||
-                BankGuiListener.getCustomWithAmount().containsKey(playerName) ||
-                DebtGuiListener.getDebtPayment().containsKey(playerName) ||
-                BankGuiListener.getCustomPhysicalWithAmount().containsKey(playerName) ||
-                BankGuiListener.getSetName().containsKey(playerName);
+        return BankGuiListener.getCustomDepAmount().containsKey(playerName)
+                || BankGuiListener.getCustomWithAmount().containsKey(playerName)
+                || DebtGuiListener.getDebtPayment().containsKey(playerName)
+                || BankGuiListener.getCustomPhysicalWithAmount().containsKey(playerName)
+                || BankGuiListener.getSetName().containsKey(playerName);
     }
 
     private void cancelTransaction(String playerName) {
@@ -69,8 +73,8 @@ public class PlayerBankChatListener implements Listener {
         BankGuiListener.getSetName().remove(playerName);
     }
 
-    private void handleSetBankName(AsyncPlayerChatEvent e, String message) {
-        String playerName = e.getPlayer().getName();
+    private void handleSetBankName(Player player, String message) {
+        String playerName = player.getName();
         StringBuilder bankName = new StringBuilder();
         String[] args = message.split(" ");
 
@@ -80,121 +84,140 @@ public class PlayerBankChatListener implements Listener {
 
         if (!args[0].equalsIgnoreCase("close")) {
             int maxLength = SBank.getPlugin().getConfig().getInt("bank-name-length");
-
             if (bankName.length() <= maxLength) {
-                Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
-                Matcher m = p.matcher(bankName.toString());
-
-                if (!m.find()) {
+                Pattern pattern = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
+                Matcher matcher = pattern.matcher(bankName.toString());
+                if (!matcher.find()) {
                     SBank.getBanks().get(playerName).setBankname(bankName.toString());
-                    TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.bank-name-set")
+                    TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.bank-name-set")
                             .replaceAll("%bankname%", bankName.toString()));
                     BankGuiListener.getSetName().remove(playerName);
                 } else {
-                    TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.bank-name-invalid"));
+                    TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.bank-name-invalid"));
                 }
             } else {
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), "&cBank name can only be %max% characters long. ".replaceAll("%max%", String.valueOf(maxLength)) +
-                        "(include spaces)");
+                TextUtils.sendMessageWithPrefix(player, "&cBank name can only be %max% characters long. "
+                        .replaceAll("%max%", String.valueOf(maxLength)) + "(include spaces)");
             }
         } else {
-            TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.bank-name-not-set"));
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.bank-name-not-set"));
             BankGuiListener.getSetName().remove(playerName);
         }
     }
 
-    private void handleDeposit(AsyncPlayerChatEvent e, double balance, String message) {
-        String playerName = e.getPlayer().getName();
-
-        if (MiscUtils.isNumeric(message)) {
-            double amount = Double.parseDouble(message);
-            if (balance >= amount) {
-                Bank bank = SBank.getBanks().get(playerName);
-                BankGuiListener.getCustomDepAmount().remove(playerName);
-                bank.setBalance(bank.getBalance() + amount);
-                SBank.getEcon().withdrawPlayer(e.getPlayer(), amount);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.deposit-success")
-                        .replaceAll("%money%", MiscUtils.formatBalance(amount)));
-            } else {
-                BankGuiListener.getCustomDepAmount().remove(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
-            }
-        } else {
-            TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+    private void handleDeposit(Player player, String message) {
+        String playerName = player.getName();
+        if (!MiscUtils.isNumeric(message)) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+            return;
         }
-    }
 
+        double amount = Double.parseDouble(message);
+        double walletBefore = SBank.getEcon().getBalance(player);
+        if (walletBefore < amount) {
+            BankGuiListener.getCustomDepAmount().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
+            return;
+        }
 
-    private void handleWithdraw(AsyncPlayerChatEvent e, String message) {
-        String playerName = e.getPlayer().getName();
         Bank bank = SBank.getBanks().get(playerName);
-
-        if (MiscUtils.isNumeric(message)) {
-            double amount = Double.parseDouble(message);
-            if (bank.getBalance() >= amount) {
-                bank.setBalance(bank.getBalance() - amount);
-                SBank.getEcon().depositPlayer(e.getPlayer(), amount);
-                BankGuiListener.getCustomWithAmount().remove(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.withdraw-success")
-                        .replaceAll("%money%", MiscUtils.formatBalance(amount)));
-            } else {
-                BankGuiListener.getCustomWithAmount().remove(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
-            }
-        } else {
-            TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+        double bankBefore = bank.getBalance();
+        EconomyResponse response = SBank.getEcon().withdrawPlayer(player, amount);
+        BankGuiListener.getCustomDepAmount().remove(playerName);
+        if (!response.transactionSuccess()) {
+            sendTransactionFailed(player);
+            return;
         }
+
+        bank.setBalance(bankBefore + amount);
+        SBank.getAuditLogger().record("DEPOSIT", playerName, player.getUniqueId().toString(), amount,
+                walletBefore, SBank.getEcon().getBalance(player), bankBefore, bank.getBalance(), "gui-chat");
+        TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.deposit-success")
+                .replaceAll("%money%", MiscUtils.formatBalance(amount)));
     }
 
+    private void handleWithdraw(Player player, String message) {
+        String playerName = player.getName();
+        if (!MiscUtils.isNumeric(message)) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+            return;
+        }
 
-    private void handlePhysicalWithdraw(AsyncPlayerChatEvent e, String message) {
-        String playerName = e.getPlayer().getName();
+        double amount = Double.parseDouble(message);
         Bank bank = SBank.getBanks().get(playerName);
+        if (bank.getBalance() < amount) {
+            BankGuiListener.getCustomWithAmount().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
+            return;
+        }
 
-        if (MiscUtils.isNumeric(message)) {
-            double amount = Double.parseDouble(message);
-            if (bank.getBalance() >= amount) {
-                if (e.getPlayer().getInventory().firstEmpty() != -1) {
-                    e.getPlayer().getInventory().addItem(MiscUtils.getPhysicalMoney(e.getPlayer(), amount));
-                    bank.setBalance(bank.getBalance() - amount);
-                    BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
-                    TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.physical-withdraw-success")
-                            .replaceAll("%money%", MiscUtils.formatBalance(amount)));
-                } else {
-                    TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.inventory-full"));
-                    BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
-                }
-            } else {
-                BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
-            }
+        double bankBefore = bank.getBalance();
+        double walletBefore = SBank.getEcon().getBalance(player);
+        EconomyResponse response = SBank.getEcon().depositPlayer(player, amount);
+        BankGuiListener.getCustomWithAmount().remove(playerName);
+        if (!response.transactionSuccess()) {
+            sendTransactionFailed(player);
+            return;
+        }
+
+        bank.setBalance(bankBefore - amount);
+        SBank.getAuditLogger().record("WITHDRAW", playerName, player.getUniqueId().toString(), amount,
+                walletBefore, SBank.getEcon().getBalance(player), bankBefore, bank.getBalance(), "gui-chat");
+        TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.withdraw-success")
+                .replaceAll("%money%", MiscUtils.formatBalance(amount)));
+    }
+
+    private void handlePhysicalWithdraw(Player player, String message) {
+        String playerName = player.getName();
+        if (!MiscUtils.isNumeric(message)) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+            return;
+        }
+
+        double amount = Double.parseDouble(message);
+        Bank bank = SBank.getBanks().get(playerName);
+        if (bank.getBalance() < amount) {
+            BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
+            return;
+        }
+        if (player.getInventory().firstEmpty() == -1
+                || !player.getInventory().addItem(MiscUtils.getPhysicalMoney(player, amount)).isEmpty()) {
+            BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.inventory-full"));
+            return;
+        }
+
+        double bankBefore = bank.getBalance();
+        double wallet = SBank.getEcon().getBalance(player);
+        bank.setBalance(bankBefore - amount);
+        BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
+        SBank.getAuditLogger().record("PHYSICAL_WITHDRAW", playerName, player.getUniqueId().toString(), amount,
+                wallet, wallet, bankBefore, bank.getBalance(), "inventory-item");
+        TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.physical-withdraw-success")
+                .replaceAll("%money%", MiscUtils.formatBalance(amount)));
+    }
+
+    private void handleDebtPayment(Player player, String message) {
+        String playerName = player.getName();
+        if (!MiscUtils.isNumeric(message)) {
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+            return;
+        }
+
+        double amount = Double.parseDouble(message);
+        double remaining = SBank.getDebts().get(playerName).getRemaining();
+        double minimumPayment = Math.min(SBank.getDebts().get(playerName).getDaily(), remaining);
+        if (amount >= minimumPayment && SBank.getEcon().getBalance(player) >= amount) {
+            DebtModule.payDebtFromBalance(player, amount);
         } else {
-            TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
+            DebtGuiListener.getDebtPayment().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
         }
     }
 
-
-    private void handleDebtPayment(AsyncPlayerChatEvent e, double balance, String message) {
-        String playerName = e.getPlayer().getName();
-
-        if (MiscUtils.isNumeric(message)) {
-            double amount = Double.parseDouble(message);
-
-            if (SBank.getDebts().get(playerName).getDaily() < amount && amount > 0) {
-                if (balance >= amount) {
-                    DebtModule.payDebtFromBalance(e.getPlayer(), amount);
-                } else {
-                    DebtGuiListener.getDebtPayment().remove(playerName);
-                    TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
-                }
-            } else {
-                DebtGuiListener.getDebtPayment().remove(playerName);
-                TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.less-then-daily")
-                        .replaceAll("%daily%", MiscUtils.formatBalance(SBank.getDebts().get(playerName).getDaily())));
-            }
-        } else {
-            TextUtils.sendMessageWithPrefix(e.getPlayer(), SBank.getPlugin().getConfig().getString("messages.invalid-amount"));
-        }
+    private void sendTransactionFailed(Player player) {
+        TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString(
+                "messages.transaction-failed", "&cThe transaction could not be completed."));
     }
-
 }

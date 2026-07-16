@@ -1,6 +1,7 @@
 package com.spearforge.sBank;
 
 import com.spearforge.sBank.commands.BankCommands;
+import com.spearforge.sBank.audit.BankAuditLogger;
 import com.spearforge.sBank.config.CustomFileConfiguration;
 import com.spearforge.sBank.database.DatabaseConnection;
 import com.spearforge.sBank.database.MySQLConnection;
@@ -22,6 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +41,8 @@ public final class SBank extends JavaPlugin {
     private static SBank plugin;
     @Getter
     private static CustomFileConfiguration guiConfig;
+    @Getter
+    private static BankAuditLogger auditLogger;
 
 
     @SneakyThrows
@@ -53,6 +57,7 @@ public final class SBank extends JavaPlugin {
 
         plugin = this;
         saveDefaultConfig();
+        auditLogger = new BankAuditLogger(this);
         guiConfig = new CustomFileConfiguration(this, "gui.yml");
         guiConfig.createConfig();
         initializeDatabaseConnection();
@@ -142,16 +147,21 @@ public final class SBank extends JavaPlugin {
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (Debt debt : debts.values()) {
-                   if (DebtModule.hasDefinedHoursPassed(debt.getUsername())){
-                       if (Bukkit.getPlayer(debt.getUsername()) != null){
-                           Player player = Bukkit.getPlayer(debt.getUsername());
-                           if (banks.get(player.getName()).getBalance() < debt.getDaily()) {
-                               debt.setRemaining(debt.getRemaining() + debt.getDaily());
-                               DebtModule.updateLastPaymentDate(debt.getUsername());
-                               TextUtils.sendMessageWithPrefix(player, getConfig().getString("messages.debt-cant-paid").replaceAll("%money%", MiscUtils.formatBalance(debt.getDaily())));
-                           } else {
-                               DebtModule.payDebt(player, debt.getDaily());
+                for (Debt debt : new ArrayList<>(debts.values())) {
+                    if (DebtModule.hasDefinedHoursPassed(debt.getUsername())){
+                        if (Bukkit.getPlayer(debt.getUsername()) != null){
+                            Player player = Bukkit.getPlayer(debt.getUsername());
+                            double payment = Math.min(debt.getDaily(), debt.getRemaining());
+                            if (banks.get(player.getName()).getBalance() < payment) {
+                                debt.setRemaining(debt.getRemaining() + debt.getDaily());
+                                DebtModule.updateLastPaymentDate(debt.getUsername());
+                                double wallet = econ.getBalance(player);
+                                auditLogger.record("DEBT_LATE_PENALTY", player.getName(), player.getUniqueId().toString(), debt.getDaily(),
+                                        wallet, wallet, banks.get(player.getName()).getBalance(), banks.get(player.getName()).getBalance(),
+                                        "remaining-debt=" + debt.getRemaining());
+                                TextUtils.sendMessageWithPrefix(player, getConfig().getString("messages.debt-cant-paid").replaceAll("%money%", MiscUtils.formatBalance(debt.getDaily())));
+                            } else {
+                                DebtModule.payDebt(player, payment);
                            }
                        } else {
                            Bank bank = null;
@@ -161,17 +171,29 @@ public final class SBank extends JavaPlugin {
                                getLogger().warning("An error occurred while getting bank for debt payment for " + debt.getUsername());
                            }
                            assert bank != null;
-                           if (bank.getBalance() < debt.getDaily()) {
-                            debt.setRemaining(debt.getRemaining() + debt.getDaily());
-                            DebtModule.updateLastPaymentDate(debt.getUsername());
-                        } else {
-                            bank.setBalance(bank.getBalance() - debt.getDaily());
-                            debt.setRemaining(debt.getRemaining() - debt.getDaily());
-                            try {
-                                db.updateBankInDatabase(bank);
-                            } catch (SQLException e) {
-                                getLogger().warning("An error occurred while updating bank balance for debt payment for " + debt.getUsername());
-                            }
+                            double payment = Math.min(debt.getDaily(), debt.getRemaining());
+                            if (bank.getBalance() < payment) {
+                             debt.setRemaining(debt.getRemaining() + debt.getDaily());
+                             DebtModule.updateLastPaymentDate(debt.getUsername());
+                             auditLogger.record("DEBT_LATE_PENALTY", debt.getUsername(), debt.getUuid(), debt.getDaily(),
+                                     0, 0, bank.getBalance(), bank.getBalance(), "offline remaining-debt=" + debt.getRemaining());
+                         } else {
+                             double bankBefore = bank.getBalance();
+                             bank.setBalance(bank.getBalance() - payment);
+                             debt.setRemaining(debt.getRemaining() - payment);
+                             auditLogger.record("DEBT_AUTO_PAYMENT", debt.getUsername(), debt.getUuid(), payment,
+                                     0, 0, bankBefore, bank.getBalance(), "offline remaining-debt=" + debt.getRemaining());
+                             try {
+                                 db.updateBankInDatabase(bank);
+                                 if (debt.getRemaining() <= 0) {
+                                     debts.remove(debt.getUsername());
+                                     db.removeDebt(debt.getUsername());
+                                 } else {
+                                     db.updateDebtInDatabase(debt);
+                                 }
+                             } catch (SQLException e) {
+                                 getLogger().warning("An error occurred while saving debt payment for " + debt.getUsername());
+                             }
                         }
                        }
                    }

@@ -5,6 +5,7 @@ import com.spearforge.sBank.model.Bank;
 import com.spearforge.sBank.model.Debt;
 import com.spearforge.sBank.utils.MiscUtils;
 import com.spearforge.sBank.utils.TextUtils;
+import net.milkbowl.vault.economy.EconomyResponse;
 import lombok.SneakyThrows;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,8 +30,13 @@ public class PlayerListener implements Listener {
             if (e.getEntity().getKiller() == null){
                 if (!p.hasPermission("sbank.dontlosemoney")){
                     if (balance > 0) {
-                        SBank.getEcon().withdrawPlayer(e.getEntity(), cut);
-                        TextUtils.sendMessageWithPrefix(p, SBank.getPlugin().getConfig().getString("after-death-message").replaceAll("%money%", MiscUtils.formatBalance(cut)));
+                        EconomyResponse response = SBank.getEcon().withdrawPlayer(e.getEntity(), cut);
+                        if (response.transactionSuccess()) {
+                            double bank = SBank.getBanks().containsKey(p.getName()) ? SBank.getBanks().get(p.getName()).getBalance() : 0;
+                            SBank.getAuditLogger().record("DEATH_PENALTY", p.getName(), p.getUniqueId().toString(), cut,
+                                    balance, SBank.getEcon().getBalance(p), bank, bank, "environmental-death");
+                            TextUtils.sendMessageWithPrefix(p, SBank.getPlugin().getConfig().getString("after-death-message").replaceAll("%money%", MiscUtils.formatBalance(cut)));
+                        }
                     }
                 }
             }
@@ -76,6 +82,7 @@ public class PlayerListener implements Listener {
                 DebtGuiListener.getDebtPayment(),
                 BankGuiListener.getCustomDepAmount(),
                 BankGuiListener.getCustomWithAmount(),
+                BankGuiListener.getCustomPhysicalWithAmount(),
                 BankGuiListener.getSetName()
         );
 
