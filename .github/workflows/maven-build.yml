@@ -2,6 +2,10 @@
 # For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#apache-maven-with-a-settings-path
 name: sBank Maven Build
 on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 jobs:
   build:
@@ -15,13 +19,20 @@ jobs:
     - name: Set up JDK
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
         server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
         settings-path: ${{ github.workspace }} # location for the settings.xml file
         
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn --batch-mode --no-transfer-progress clean verify --file pom.xml
+    - name: Validar perfiles fisicos Paper 1.21.11
+      shell: bash
+      run: |
+        JAR="$(find target -maxdepth 1 -type f -name 'sBank*.jar' ! -name 'original-*' | head -n 1)"
+        test -n "$JAR"
+        javap -classpath "$JAR" -c com.spearforge.sBank.utils.MiscUtils | grep -q 'Bukkit.createProfile'
+        ! javap -classpath "$JAR" -c com.spearforge.sBank.utils.MiscUtils | grep -q 'authlib/GameProfile'
     - name: Upload Artifact Build
       uses: actions/upload-artifact@v4
       with:

@@ -1,9 +1,10 @@
 package com.spearforge.sBank.utils;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 import com.spearforge.sBank.SBank;
 import com.spearforge.sBank.model.MoneyPile;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -14,7 +15,6 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.permissions.PermissionAttachmentInfo;
 
-import java.lang.reflect.Field;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
@@ -80,16 +80,9 @@ public class MiscUtils {
         }
 
         SkullMeta headMeta = (SkullMeta) head.getItemMeta();
-        GameProfile profile = new GameProfile(UUID.randomUUID(), null);
-        profile.getProperties().put("textures", new Property("textures", base64));
-
-        try {
-            Field profileField = headMeta.getClass().getDeclaredField("profile");
-            profileField.setAccessible(true);
-            profileField.set(headMeta, profile);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
+        PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID(), "sbank");
+        profile.setProperty(new ProfileProperty("textures", base64));
+        headMeta.setPlayerProfile(profile);
 
         head.setItemMeta(headMeta);
         return head;
