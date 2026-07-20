@@ -1,7 +1,7 @@
 target/
 *.db
 *.db-journal
-audit/
+/audit/
 *.log
 .idea/
 *.iml
