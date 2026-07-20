@@ -13,6 +13,8 @@ Banking plugin for Minecraft servers using Vault. This fork is maintained for Dr
 - Loans, scheduled debt payments, and configurable interest.
 - Vault economy integration and Citizens banker support.
 - Daily JSONL audit files for deposits, withdrawals, physical money, loans, debt payments, interest, and death penalties.
+- Physical money uses internal item data; its visible name and lore are never accepted as proof of value.
+- Completed deposits, withdrawals and physical withdrawals persist immediately instead of waiting for autosave.
 
 ## Audit Trail
 
@@ -58,6 +60,8 @@ audit:
 - Vault is required. Citizens is optional.
 - Numeric transactions must be finite and greater than zero.
 - Vault responses are checked before the corresponding bank balance is changed.
+- A failed persistence rolls back the matching Vault movement where possible and never confirms the transaction to the player.
+- Interest is disabled in the DrakesCraft default configuration because it mints currency; enable it only as an explicit economy policy.
 - Chat-driven actions are returned to the Bukkit main thread before interacting with Vault, inventories, or persistent plugin state.
 - Interest creates money according to the configured rate. Treat its rate and interval as economy policy, not a harmless cosmetic setting.
 

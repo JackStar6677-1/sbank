@@ -36,12 +36,7 @@ public class MoneyPileListener implements Listener {
             return;
         }
 
-        List<String> lore = SBank.getPlugin().getConfig().getStringList("physical-money.item.lore");
-        if (lore == null || lore.isEmpty()){
-            return;
-        }
-
-        double amount = MiscUtils.extractMoney(meta.getLore());
+        double amount = MiscUtils.getVerifiedPhysicalMoney(meta);
         if (amount <= 0 || item.getAmount() != 1){
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.invalid-money-pile"));
             return;
@@ -51,8 +46,13 @@ public class MoneyPileListener implements Listener {
         Bank pBank = SBank.getBanks().get(player.getName());
         double bankBefore = pBank.getBalance();
         double wallet = SBank.getEcon().getBalance(player);
-        player.getInventory().setItemInMainHand(null);
         pBank.setBalance(bankBefore + amount);
+        if (!SBank.persistBank(pBank)) {
+            pBank.setBalance(bankBefore);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.transaction-failed"));
+            return;
+        }
+        player.getInventory().setItemInMainHand(null);
         SBank.getAuditLogger().record("PHYSICAL_REDEEM", player.getName(), player.getUniqueId().toString(), amount,
                 wallet, wallet, bankBefore, pBank.getBalance(), "right-click-item");
         TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.money-pile-redeemed").replaceAll("%money_pile%", MiscUtils.formatBalance(amount)));

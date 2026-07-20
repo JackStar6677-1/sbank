@@ -6,10 +6,12 @@ import com.spearforge.sBank.SBank;
 import com.spearforge.sBank.model.MoneyPile;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.permissions.PermissionAttachmentInfo;
 
 import java.lang.reflect.Field;
@@ -21,6 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MiscUtils {
+    private static final String PHYSICAL_MONEY_MARKER = "sbank_physical_money_v1";
     
     public static double getInterest(Player player, double _interest) {
         Pattern pattern = Pattern.compile("^sbank\\.interest\\.(\\d+)$"); // sbank.interest.<percent>
@@ -117,10 +120,30 @@ public class MiscUtils {
         if (meta != null) {
             meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', SBank.getPlugin().getConfig().getString("physical-money.item.name")));
             meta.setLore(TextUtils.replacePlaceholders(SBank.getPlugin().getConfig().getStringList("physical-money.item.lore"), null, null, moneyPile));
+            meta.getPersistentDataContainer().set(physicalMoneyKey(), PersistentDataType.DOUBLE, amount);
+            meta.getPersistentDataContainer().set(physicalMoneyMarkerKey(), PersistentDataType.STRING, PHYSICAL_MONEY_MARKER);
             physicalMoney.setItemMeta(meta);
         }
 
         return physicalMoney;
+    }
+
+    /** Validates money created by sBank itself; display name and lore are never trusted as currency authority. */
+    public static double getVerifiedPhysicalMoney(ItemMeta meta) {
+        if (meta == null || !PHYSICAL_MONEY_MARKER.equals(meta.getPersistentDataContainer()
+                .get(physicalMoneyMarkerKey(), PersistentDataType.STRING))) {
+            return -1.0D;
+        }
+        Double amount = meta.getPersistentDataContainer().get(physicalMoneyKey(), PersistentDataType.DOUBLE);
+        return amount != null && Double.isFinite(amount) && amount > 0.0D ? amount : -1.0D;
+    }
+
+    private static NamespacedKey physicalMoneyKey() {
+        return new NamespacedKey(SBank.getPlugin(), "physical_money_amount");
+    }
+
+    private static NamespacedKey physicalMoneyMarkerKey() {
+        return new NamespacedKey(SBank.getPlugin(), "physical_money_marker");
     }
 
     public static double extractMoney(List<String> lore) {

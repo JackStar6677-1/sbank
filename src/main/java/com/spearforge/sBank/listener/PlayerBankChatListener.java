@@ -130,6 +130,12 @@ public class PlayerBankChatListener implements Listener {
         }
 
         bank.setBalance(bankBefore + amount);
+        if (!SBank.persistBank(bank)) {
+            bank.setBalance(bankBefore);
+            SBank.getEcon().depositPlayer(player, amount);
+            sendTransactionFailed(player);
+            return;
+        }
         SBank.getAuditLogger().record("DEPOSIT", playerName, player.getUniqueId().toString(), amount,
                 walletBefore, SBank.getEcon().getBalance(player), bankBefore, bank.getBalance(), "gui-chat");
         TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.deposit-success")
@@ -161,6 +167,12 @@ public class PlayerBankChatListener implements Listener {
         }
 
         bank.setBalance(bankBefore - amount);
+        if (!SBank.persistBank(bank)) {
+            bank.setBalance(bankBefore);
+            SBank.getEcon().withdrawPlayer(player, amount);
+            sendTransactionFailed(player);
+            return;
+        }
         SBank.getAuditLogger().record("WITHDRAW", playerName, player.getUniqueId().toString(), amount,
                 walletBefore, SBank.getEcon().getBalance(player), bankBefore, bank.getBalance(), "gui-chat");
         TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.withdraw-success")
@@ -181,8 +193,7 @@ public class PlayerBankChatListener implements Listener {
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.not-enough-money"));
             return;
         }
-        if (player.getInventory().firstEmpty() == -1
-                || !player.getInventory().addItem(MiscUtils.getPhysicalMoney(player, amount)).isEmpty()) {
+        if (player.getInventory().firstEmpty() == -1) {
             BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
             TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.inventory-full"));
             return;
@@ -191,6 +202,19 @@ public class PlayerBankChatListener implements Listener {
         double bankBefore = bank.getBalance();
         double wallet = SBank.getEcon().getBalance(player);
         bank.setBalance(bankBefore - amount);
+        if (!SBank.persistBank(bank)) {
+            bank.setBalance(bankBefore);
+            BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
+            sendTransactionFailed(player);
+            return;
+        }
+        if (!player.getInventory().addItem(MiscUtils.getPhysicalMoney(player, amount)).isEmpty()) {
+            bank.setBalance(bankBefore);
+            SBank.persistBank(bank);
+            BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
+            TextUtils.sendMessageWithPrefix(player, SBank.getPlugin().getConfig().getString("messages.inventory-full"));
+            return;
+        }
         BankGuiListener.getCustomPhysicalWithAmount().remove(playerName);
         SBank.getAuditLogger().record("PHYSICAL_WITHDRAW", playerName, player.getUniqueId().toString(), amount,
                 wallet, wallet, bankBefore, bank.getBalance(), "inventory-item");

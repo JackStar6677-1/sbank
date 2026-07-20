@@ -1,7 +1,7 @@
 name: sBank
-version: '1.3'
+version: '1.5.0'
 main: com.spearforge.sBank.SBank
-api-version: 1.13
+api-version: '1.21'
 depend: [Vault]
 softdepend: [Citizens]
 commands:

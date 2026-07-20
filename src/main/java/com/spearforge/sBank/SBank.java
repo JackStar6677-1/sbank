@@ -264,4 +264,15 @@ public final class SBank extends JavaPlugin {
             }
         }
     }
+
+    /** Persists a completed money movement immediately so a crash cannot resurrect an old in-memory balance. */
+    public static boolean persistBank(Bank bank) {
+        try {
+            db.updateBankInDatabase(bank);
+            return true;
+        } catch (SQLException exception) {
+            plugin.getLogger().warning("Could not persist bank movement for " + bank.getUsername() + ": " + exception.getMessage());
+            return false;
+        }
+    }
 }

@@ -4,9 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
 
 @Data
 @AllArgsConstructor
@@ -27,10 +24,15 @@ public class Bank {
     }
     
     public double getBalance() {
-        DecimalFormatSymbols dfs = new DecimalFormatSymbols(Locale.GERMANY);
-        dfs.setDecimalSeparator('.');
-        DecimalFormat df = new DecimalFormat("#.00", dfs);
-        return Double.parseDouble(df.format(balance));
+        return balance;
+    }
+
+    /** Keeps the stored currency exact to cents without formatting or locale-dependent parsing. */
+    public void setBalance(double balance) {
+        if (!Double.isFinite(balance) || balance < 0) {
+            throw new IllegalArgumentException("Bank balance must be finite and non-negative");
+        }
+        this.balance = Math.round(balance * 100.0D) / 100.0D;
     }
 
 }

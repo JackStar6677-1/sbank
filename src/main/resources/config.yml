@@ -124,7 +124,8 @@ loan:
 # Interest Permission: sbank.interest # Player must have this permission to get interest
 # Custom Interest Permission: sbank.interest.<percent>
 interest:
-  enabled: true # If you turn this false or true you need to restart the server to apply changes. Also change gui.yml to remove interest information for good user experience.
+  # Interest creates currency. Keep it disabled until the economy explicitly needs a controlled reward rate.
+  enabled: false
   default-interest-rate: 10 # In percentage. If the player is online and the interest setting is enabled, they will receive this default percentage of their money at every interest-time, unless they have a sbank.interest.<percent> permission set.
   interest-time: 12 # In hours interest will be calculated every 12 hours
   last-interest-date: "2024-10-07 20:49:00" # Last interest info, DO NOT TOUCH, this will be change automatically
